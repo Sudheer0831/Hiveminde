@@ -4,6 +4,13 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 from host_main import HiveMindHostEnhanced
+from hivemind.common.protocol import Protocol
+from werkzeug.utils import secure_filename
+import os
+import time
+
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
@@ -41,6 +48,66 @@ def status():
         "session_code": host.session_manager.session_code if host else None,
         "node_count": len(host.session_manager.nodes) if host else 0,
     })
+
+
+@app.route('/api/session/create', methods=['POST'])
+def create_session():
+    host = _host_state.get("host")
+    if not host:
+        return jsonify({"ok": False, "reason": "host not running"}), 400
+
+    code = host.session_manager.generate_session_code()
+    return jsonify({"ok": True, "session_code": code})
+
+
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    from flask import send_from_directory
+    return send_from_directory(UPLOAD_DIR, filename)
+
+
+@app.route('/api/upload', methods=['POST'])
+def upload():
+    if 'file' not in request.files:
+        return jsonify({"ok": False, "reason": "no file"}), 400
+    f = request.files['file']
+    filename = secure_filename(f.filename)
+    path = os.path.join(UPLOAD_DIR, filename)
+    f.save(path)
+    url = f"/uploads/{filename}"
+    return jsonify({"ok": True, "url": url})
+
+
+@app.route('/api/schedule', methods=['POST'])
+def schedule():
+    data = request.get_json() or {}
+    track_url = data.get('track_url')
+    delay = float(data.get('delay', 3.0))
+    if not track_url:
+        return jsonify({"ok": False, "reason": "no track_url"}), 400
+
+    start_at = time.time() + max(0.5, delay)
+
+    host = _host_state.get("host")
+    if not host:
+        return jsonify({"ok": False, "reason": "host not running"}), 400
+
+    host.session_manager.add_scheduled_track(track_url, start_at)
+
+    # Broadcast schedule to nodes
+    msg = Protocol.create_schedule_message(track_url=track_url, start_at=start_at)
+    try:
+        # schedule broadcast on host loop
+        loop = _host_state.get("loop")
+        if loop:
+            asyncio.run_coroutine_threadsafe(host.network_server.broadcast(msg), loop)
+        else:
+            # best-effort
+            asyncio.get_event_loop().create_task(host.network_server.broadcast(msg))
+    except Exception:
+        pass
+
+    return jsonify({"ok": True, "start_at": start_at})
 
 
 @app.route('/api/start', methods=['POST'])

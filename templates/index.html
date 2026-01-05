@@ -16,6 +16,24 @@
         <button id="start">Start Host</button>
         <button id="stop">Stop Host</button>
       </div>
+
+      <h2>Session</h2>
+      <div>
+        <button id="create-session">Create Session Code</button>
+        <div id="session-code">-</div>
+      </div>
+
+      <h2>Track Upload & Schedule</h2>
+      <form id="upload-form">
+        <input type="file" id="file" name="file" />
+        <button type="submit">Upload</button>
+      </form>
+      <div id="uploaded-url"></div>
+      <div>
+        <label>Delay (seconds): <input id="delay" type="number" value="3" /></label>
+        <button id="schedule">Schedule Track</button>
+      </div>
+
       <pre id="log"></pre>
     </div>
     <script src="/static/script.js"></script>
