@@ -25,11 +25,30 @@ class AudioCodecManager:
         if not pcm_frames:
             return b"", False
 
+        # Normalize input to bytes (16-bit signed little-endian PCM expected)
+        data = None
+        if isinstance(pcm_frames, (bytes, bytearray)):
+            data = bytes(pcm_frames)
+        else:
+            try:
+                import array
+
+                if isinstance(pcm_frames, array.array):
+                    data = pcm_frames.tobytes()
+                elif isinstance(pcm_frames, list):
+                    arr = array.array('h', pcm_frames)
+                    data = arr.tobytes()
+            except Exception:
+                data = None
+
+        if data is None:
+            return b"", False
+
         if self._encoder:
             try:
-                # `pcm_frames` should be 16-bit little-endian signed PCM
-                # The frame size (samples per channel) is inferred by the caller.
-                encoded = self._encoder.encode(pcm_frames, 960)
+                # Use a 20ms frame size (typical): samples_per_channel = sample_rate * 20 / 1000
+                frame_size = int(self.sample_rate * 20 / 1000)
+                encoded = self._encoder.encode(data, frame_size)
                 return encoded, True
             except Exception:
                 pass
