@@ -8,7 +8,6 @@ import asyncio
 import logging
 import sys
 import time
-import numpy as np
 import threading
 
 from hivemind.host.session_manager import SessionManager
