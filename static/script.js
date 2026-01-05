@@ -62,3 +62,16 @@ document.getElementById('schedule').addEventListener('click', async () => {
   const r = await api('/api/schedule', 'POST', JSON.stringify({ track_url: url, delay }));
   if (r.ok) appendLog('Scheduled to start at ' + new Date(r.start_at * 1000).toLocaleTimeString()); else appendLog('Schedule failed: ' + (r.reason||'unknown'));
 });
+
+// Demo controls
+document.getElementById('demo-start').addEventListener('click', async () => {
+  const duration = parseFloat(document.getElementById('demo-duration').value || '5');
+  const chunk_ms = parseInt(document.getElementById('demo-chunk').value || '20');
+  const r = await api('/api/demo/start', 'POST', JSON.stringify({ duration, chunk_ms }));
+  if (r.ok) appendLog('Demo started'); else appendLog('Demo start failed: ' + (r.reason||'unknown'));
+});
+
+document.getElementById('demo-stop').addEventListener('click', async () => {
+  const r = await api('/api/demo/stop', 'POST');
+  if (r.ok) appendLog('Demo stopped'); else appendLog('Demo stop failed: ' + (r.reason||'unknown'));
+});

@@ -16,6 +16,7 @@ app = Flask(__name__, static_folder='static', template_folder='templates')
 
 # _host_state holds: host, thread, loop
 _host_state = {"host": None, "thread": None, "loop": None}
+_host_state.update({"demo_event": None, "demo_future": None})
 
 
 def _run_host(host: HiveMindHostEnhanced):
@@ -108,6 +109,75 @@ def schedule():
         pass
 
     return jsonify({"ok": True, "start_at": start_at})
+
+
+@app.route('/api/demo/start', methods=['POST'])
+def demo_start():
+    data = request.get_json() or {}
+    duration = float(data.get('duration', 5.0))
+    chunk_ms = int(data.get('chunk_ms', 20))
+
+    host = _host_state.get("host")
+    loop = _host_state.get("loop")
+    if not host or not loop:
+        return jsonify({"ok": False, "reason": "host not running"}), 400
+
+    if _host_state.get('demo_future') is not None:
+        return jsonify({"ok": False, "reason": "demo already running"}), 400
+
+    async def _demo_generator(host_app, duration_s, chunk_ms, stop_event: asyncio.Event):
+        sr = host_app.codec_manager.sample_rate
+        channels = host_app.codec_manager.channels
+        codec = host_app.codec_manager
+        import math, time
+        start = time.time()
+        freq = 440.0
+        while (time.time() - start) < duration_s and not stop_event.is_set():
+            frame_count = int(sr * (chunk_ms / 1000.0))
+            pcm = bytearray()
+            for n in range(frame_count):
+                t = n / sr
+                val = int(0.5 * 32767.0 * math.sin(2.0 * math.pi * freq * t))
+                pcm.extend(int(val).to_bytes(2, 'little', signed=True))
+
+            encoded, _ = codec.encode(bytes(pcm))
+            msg = Protocol.create_audio_chunk(play_at=time.time() + 0.2, sample_rate=sr, channels=channels, audio_data=encoded)
+            try:
+                await host_app.network_server.broadcast(msg)
+            except Exception:
+                pass
+            await asyncio.sleep(chunk_ms / 1000.0)
+
+    # create stop event on host loop
+    fut_event = asyncio.run_coroutine_threadsafe(asyncio.Event(), loop)
+    stop_event = fut_event.result()
+
+    # schedule generator
+    future = asyncio.run_coroutine_threadsafe(_demo_generator(host, duration, chunk_ms, stop_event), loop)
+    _host_state['demo_event'] = stop_event
+    _host_state['demo_future'] = future
+
+    return jsonify({"ok": True})
+
+
+@app.route('/api/demo/stop', methods=['POST'])
+def demo_stop():
+    loop = _host_state.get('loop')
+    stop_event = _host_state.get('demo_event')
+    future = _host_state.get('demo_future')
+    if not loop or not stop_event or not future:
+        return jsonify({"ok": False, "reason": "demo not running"}), 400
+
+    try:
+        # set the event on the host loop
+        asyncio.run_coroutine_threadsafe(stop_event.set(), loop).result(timeout=2)
+    except Exception:
+        pass
+
+    # clear stored refs
+    _host_state['demo_event'] = None
+    _host_state['demo_future'] = None
+    return jsonify({"ok": True})
 
 
 @app.route('/api/start', methods=['POST'])
