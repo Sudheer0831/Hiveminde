@@ -1,0 +1,6 @@
+body { font-family: Arial, sans-serif; background: #f7f7f8; color: #222; }
+.container { max-width: 760px; margin: 40px auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,0.06);} 
+h1 { margin: 0 0 12px 0 }
+.controls { margin-top: 12px }
+button { padding: 8px 14px; margin-right: 8px }
+#log { height: 200px; overflow: auto; background: #111; color: #0f0; padding: 12px; margin-top: 14px }
