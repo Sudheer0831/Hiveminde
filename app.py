@@ -149,10 +149,13 @@ def demo_start():
             await asyncio.sleep(chunk_ms / 1000.0)
 
     # create stop event on host loop
-    fut_event = asyncio.run_coroutine_threadsafe(asyncio.Event(), loop)
+    async def _make_event():
+        return asyncio.Event()
+
+    fut_event = asyncio.run_coroutine_threadsafe(_make_event(), loop)
     stop_event = fut_event.result()
 
-    # schedule generator
+    # schedule generator on host loop
     future = asyncio.run_coroutine_threadsafe(_demo_generator(host, duration, chunk_ms, stop_event), loop)
     _host_state['demo_event'] = stop_event
     _host_state['demo_future'] = future
@@ -169,8 +172,13 @@ def demo_stop():
         return jsonify({"ok": False, "reason": "demo not running"}), 400
 
     try:
-        # set the event on the host loop
-        asyncio.run_coroutine_threadsafe(stop_event.set(), loop).result(timeout=2)
+        # set the event flag on host loop thread-safely
+        loop.call_soon_threadsafe(stop_event.set)
+        # optionally wait for future to finish
+        try:
+            future.result(timeout=2)
+        except Exception:
+            pass
     except Exception:
         pass
 
