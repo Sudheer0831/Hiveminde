@@ -41,7 +41,7 @@ class NetworkServer:
     def register_handler(self, message_type, handler):
         self.handlers[message_type] = handler
 
-    async def _handler(self, websocket, path):
+    async def _handler(self, websocket, path=None):
         addr = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
         client = WSClient(websocket, addr, self)
         client_id = addr
