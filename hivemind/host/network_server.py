@@ -1,7 +1,8 @@
 import asyncio
 import json
 import logging
-from typing import Callable, Dict
+import base64
+from typing import Callable, Dict, Any
 
 import websockets
 
@@ -39,7 +40,9 @@ class NetworkServer:
         self._stop_event = asyncio.Event()
 
     def register_handler(self, message_type, handler):
-        self.handlers[message_type] = handler
+        # Accept Enum members (MessageType) or strings; store string key
+        key = getattr(message_type, "value", message_type)
+        self.handlers[key] = handler
 
     async def _handler(self, websocket, path=None):
         addr = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
@@ -59,6 +62,13 @@ class NetworkServer:
                 mtype = msg.get("type")
                 payload = msg.get("payload")
                 audio_data = msg.get("audio_data")
+
+                # If audio_data is base64 string, decode to bytes for handlers
+                if isinstance(audio_data, str):
+                    try:
+                        audio_data = base64.b64decode(audio_data)
+                    except Exception:
+                        audio_data = audio_data
 
                 handler = self.handlers.get(mtype)
                 if handler:
@@ -83,7 +93,24 @@ class NetworkServer:
         self._stop_event.set()
 
     async def broadcast(self, message):
-        data = json.dumps(message)
+        # Convert any bytes in message to base64 strings for JSON transport
+        def _serialize(obj: Any):
+            if isinstance(obj, (bytes, bytearray)):
+                return base64.b64encode(bytes(obj)).decode('ascii')
+            raise TypeError()
+
+        try:
+            data = json.dumps(message, default=_serialize)
+        except TypeError:
+            # Fallback: strip non-serializable entries
+            msg = {}
+            for k, v in message.items():
+                if isinstance(v, (bytes, bytearray)):
+                    msg[k] = base64.b64encode(bytes(v)).decode('ascii')
+                else:
+                    msg[k] = v
+            data = json.dumps(msg)
+
         for client in list(self.clients.values()):
             try:
                 await client.ws.send(data)
