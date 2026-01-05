@@ -1,5 +1,7 @@
 async function api(path, method = 'GET') {
-  const res = await fetch(path, { method });
+  const opts = { method };
+  if (method === 'POST' && arguments.length > 2) opts.body = arguments[2];
+  const res = await fetch(path, opts);
   return res.json();
 }
 
@@ -26,3 +28,50 @@ function appendLog(msg) {
 }
 
 refresh();
+
+// Session create
+document.getElementById('create-session').addEventListener('click', async () => {
+  const r = await api('/api/session/create', 'POST');
+  if (r.ok) {
+    document.getElementById('session-code').innerText = r.session_code;
+    appendLog('Session created: ' + r.session_code);
+  } else {
+    appendLog('Create session failed: ' + (r.reason||'unknown'));
+  }
+});
+
+// Upload form
+document.getElementById('upload-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = document.getElementById('file').files[0];
+  if (!f) return appendLog('No file selected');
+  const fd = new FormData();
+  fd.append('file', f);
+  const r = await api('/api/upload', 'POST', fd);
+  if (r.ok) {
+    document.getElementById('uploaded-url').innerText = r.url;
+    appendLog('Uploaded: ' + r.url);
+  } else appendLog('Upload failed: ' + (r.reason||'unknown'));
+});
+
+// Schedule
+document.getElementById('schedule').addEventListener('click', async () => {
+  const url = document.getElementById('uploaded-url').innerText;
+  const delay = parseFloat(document.getElementById('delay').value || '3');
+  if (!url) return appendLog('No uploaded track URL');
+  const r = await api('/api/schedule', 'POST', JSON.stringify({ track_url: url, delay }));
+  if (r.ok) appendLog('Scheduled to start at ' + new Date(r.start_at * 1000).toLocaleTimeString()); else appendLog('Schedule failed: ' + (r.reason||'unknown'));
+});
+
+// Demo controls
+document.getElementById('demo-start').addEventListener('click', async () => {
+  const duration = parseFloat(document.getElementById('demo-duration').value || '5');
+  const chunk_ms = parseInt(document.getElementById('demo-chunk').value || '20');
+  const r = await api('/api/demo/start', 'POST', JSON.stringify({ duration, chunk_ms }));
+  if (r.ok) appendLog('Demo started'); else appendLog('Demo start failed: ' + (r.reason||'unknown'));
+});
+
+document.getElementById('demo-stop').addEventListener('click', async () => {
+  const r = await api('/api/demo/stop', 'POST');
+  if (r.ok) appendLog('Demo stopped'); else appendLog('Demo stop failed: ' + (r.reason||'unknown'));
+});
