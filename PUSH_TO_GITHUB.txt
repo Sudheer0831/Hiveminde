@@ -1,0 +1,55 @@
+# ============================================================
+# HiveMind - GitHub Push Commands
+# ============================================================
+# IMPORTANT: Open a NEW PowerShell window and run these commands
+# (Git was just installed and requires a fresh terminal)
+# ============================================================
+
+# Navigate to project directory
+cd "c:\Users\chava\OneDrive\Desktop\Hive Mind"
+
+# Initialize Git repository
+git init
+
+# Configure Git (first time only)
+git config user.name "Your Name"
+git config user.email "your.email@example.com"
+
+# Add all files
+git add .
+
+# Create initial commit
+git commit -m "Initial commit: HiveMind distributed audio sync system v1.0
+
+Features:
+- Distributed audio synchronization (<50ms accuracy)
+- Opus audio compression (10x bandwidth reduction)  
+- Web dashboard with real-time monitoring
+- Per-node volume control and balancing
+- Automatic latency calibration
+- Quality presets (Low/Medium/High/Ultra)
+- Complete documentation and tests"
+
+# ============================================================
+# Next: Create GitHub Repository
+# ============================================================
+# 1. Go to: https://github.com/new
+# 2. Repository name: hivemind
+# 3. Description: Distributed audio synchronization system
+# 4. Public or Private: Your choice
+# 5. Do NOT check "Initialize with README"
+# 6. Click "Create repository"
+# ============================================================
+
+# Connect to GitHub (replace YOUR_USERNAME with your GitHub username)
+git remote add origin https://github.com/YOUR_USERNAME/hivemind.git
+
+# Rename branch to main
+git branch -M main
+
+# Push to GitHub
+git push -u origin main
+
+# ============================================================
+# Done! Your code is now on GitHub
+# ============================================================
