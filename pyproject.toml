@@ -1,0 +1,7 @@
+[tool.vercel]
+app = "app:app"
+
+[tool.poetry]
+name = "hiveminde"
+version = "0.0.0"
+description = "HiveMinde web dashboard and host"

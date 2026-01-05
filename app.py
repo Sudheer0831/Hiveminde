@@ -1,21 +1,31 @@
 from flask import Flask, render_template, jsonify, request
 import threading
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 from host_main import HiveMindHostEnhanced
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
-_host_state = {"host": None, "thread": None}
+# _host_state holds: host, thread, loop
+_host_state = {"host": None, "thread": None, "loop": None}
 
 
 def _run_host(host: HiveMindHostEnhanced):
+    # Run host.start() inside its own asyncio event loop on a dedicated thread.
     loop = asyncio.new_event_loop()
+    _host_state["loop"] = loop
     asyncio.set_event_loop(loop)
     try:
         loop.run_until_complete(host.start())
     except Exception:
         pass
+    finally:
+        try:
+            loop.run_until_complete(loop.shutdown_asyncgens())
+        except Exception:
+            pass
+        _host_state["loop"] = None
 
 
 @app.route('/')
@@ -49,11 +59,17 @@ def start():
 @app.route('/api/stop', methods=['POST'])
 def stop():
     host = _host_state.get("host")
-    if not host or not host.running:
+    loop = _host_state.get("loop")
+    if not host or not host.running or loop is None:
         return jsonify({"stopped": False, "reason": "not running"}), 400
 
-    # Best-effort stop: flip running flag. Proper shutdown should be performed in same event loop.
-    host.running = False
+    # Schedule the host.stop coroutine on the host's event loop and wait for it
+    try:
+        fut = asyncio.run_coroutine_threadsafe(host.stop(), loop)
+        fut.result(timeout=10)
+    except Exception as e:
+        return jsonify({"stopped": False, "reason": str(e)}), 500
+
     return jsonify({"stopped": True})
 
 
